@@ -210,6 +210,17 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         newState
     }
 
+    /**
+     * Hack to quickly get a kind of re-resolve going. Brings interface down and back up though.
+     */
+    suspend fun reResolveEndpoints() {
+        getTunnels().forEach { tunnel ->
+            if (tunnel.name in getBackend().runningTunnelNames) {
+                setTunnelConfig(tunnel, getTunnelConfig(tunnel))
+            }
+        }
+    }
+
     class IntentReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
             applicationScope.launch {

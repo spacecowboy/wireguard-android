@@ -6,6 +6,10 @@ package com.wireguard.android
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.StrictMode
 import android.os.StrictMode.ThreadPolicy
@@ -94,6 +98,34 @@ class Application : android.app.Application() {
         return backend
     }
 
+    private fun registerForNetworkChanges() {
+        val cm = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onLost(network: Network) {
+                coroutineScope.launch {
+                    tunnelManager.reResolveEndpoints()
+                }
+            }
+
+            override fun onAvailable(network: Network) {
+                coroutineScope.launch {
+                    tunnelManager.reResolveEndpoints()
+                }
+            }
+        }
+
+        cm.registerNetworkCallback(
+                NetworkRequest.Builder()
+                        // All except VPN
+                        .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                        .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+                        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                        .build(),
+                callback
+        )
+    }
+
     override fun onCreate() {
         Log.i(TAG, USER_AGENT)
         super.onCreate()
@@ -119,6 +151,7 @@ class Application : android.app.Application() {
                 Log.e(TAG, Log.getStackTraceString(e))
             }
         }
+        registerForNetworkChanges()
     }
 
     override fun onTerminate() {
